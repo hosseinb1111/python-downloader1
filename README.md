@@ -8,7 +8,7 @@
 A Telegram bot that turns links into files. Send a URL and get the video back, or use `/audio` for an MP3.
 Built on [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) and [`python-telegram-bot`](https://python-telegram-bot.org/).
 
-<!-- Add a screenshot or short GIF of a real chat here, for example: ![Demo](docs/demo.gif) -->
+
 
 ## Features
 
