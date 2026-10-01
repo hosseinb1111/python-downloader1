@@ -1,396 +1,168 @@
-# 📥 Python Telegram Downloader
+# 📥 Telegram Media Downloader
 
-[![Python](https://img.shields.io/badge/Python-3.x-3776AB?logo=python\&logoColor=white)](https://www.python.org/)
-[![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram\&logoColor=white)](https://telegram.org/)
-[![yt--dlp](https://img.shields.io/badge/Downloader-yt--dlp-black)](https://github.com/yt-dlp/yt-dlp)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram&logoColor=white)](https://telegram.org/)
+[![yt-dlp](https://img.shields.io/badge/Downloader-yt--dlp-black)](https://github.com/yt-dlp/yt-dlp)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A lightweight Telegram bot that downloads media from supported URLs and sends the downloaded file directly back to the user.
-
-The bot uses **`yt-dlp`** for media extraction and **`python-telegram-bot`** for Telegram integration.
+A Telegram bot that turns links into files. Send a URL, get the video back — or an MP3 with `/audio`.
+Built on [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) and [`python-telegram-bot`](https://python-telegram-bot.org/).
 
 ---
 
 ## ✨ Features
 
-### 📥 Media Downloading
-
-Send the bot a supported URL and it will attempt to download the media automatically.
-
-The current bot is designed for links from services supported by `yt-dlp`, including examples such as:
-
-* YouTube
-* X / Twitter
-* TikTok
-* Instagram
-* Other platforms supported by `yt-dlp`
-
-Support ultimately depends on what `yt-dlp` supports at the time of use.
-
-### 🚦 Per-User Cooldown
-
-Each user has a cooldown between downloads.
-
-The current configuration requires users to wait:
-
-```text
-30 seconds
-```
-
-before starting another download. This helps reduce abuse and unnecessary resource usage.
-
-### 📏 File Size Protection
-
-Downloaded files are checked before being uploaded to Telegram.
-
-The current maximum is:
-
-```text
-50 MB
-```
-
-Files larger than that are rejected and the user receives an error message.
-
-### 🗂️ Automatic File Handling
-
-The bot automatically sends downloaded files according to their extension:
-
-| File type               | Telegram method |
-| ----------------------- | --------------- |
-| MP4 / MOV / WebM        | Video           |
-| JPG / JPEG / PNG / WebP | Photo           |
-| Everything else         | Document        |
-
-After the upload finishes, the temporary downloaded file is removed from disk.
-
-### 🔗 Automatic URL Detection
-
-The bot searches incoming messages for HTTP/HTTPS URLs using a regular expression.
-
-You don't need to use a special command. Just send a message containing the link.
-
-### ❤️ Keepalive Endpoint
-
-The project includes a small Flask application that exposes:
-
-```text
-/
-```
-
-and returns:
-
-```text
-Bot is alive
-```
-
-The Flask server listens on port `10000` and is started in a background thread by `start_keepalive()`.
+| | |
+|---|---|
+| 🎬 **Video** | Send any supported link. The bot replies with the video, a caption (title, uploader, duration, source link) and streaming support. |
+| 🎵 **Audio** | `/audio <link>` (or reply to a link with `/audio`) returns an MP3 with title/artist tags. |
+| 📊 **Live progress** | One status message updates as it goes: queued → fetching → `▰▰▰▰▱▱▱▱▱▱ 42%` with speed and ETA → uploading. |
+| 📉 **Auto quality fallback** | Too big for Telegram's 50 MB limit? The bot retries at 720p → 480p → 360p before giving up. |
+| ⚡ **Non-blocking** | Downloads run in worker threads and updates are processed concurrently, so one long download never freezes the bot for everyone else. |
+| 🚦 **Limits that make sense** | Per-user cooldown, max duration, max file size, and a cap on simultaneous downloads. |
+| 🛡️ **Safer by default** | Blocks links to private/internal addresses (SSRF), disables yt-dlp's "any page" extractor unless you opt in, never echoes raw errors to users. |
+| 🔒 **Private mode** | Set `ALLOWED_USER_IDS` and only those users can use the bot. |
+| 🩺 **Health endpoint** | `GET /` → `Bot is alive`, `GET /health` → JSON with uptime and counters. Works with Render/UptimeRobot-style monitors. |
+| 🧹 **Self-cleaning** | Every job gets its own temp folder that is deleted afterwards (leftovers from a crash are swept on startup). |
 
 ---
 
-## 🏗️ How It Works
-
-```text
-User sends URL
-       │
-       ▼
-Telegram Bot
-       │
-       ▼
-URL Detection
-       │
-       ▼
-Cooldown Check
-       │
-       ▼
-yt-dlp Download
-       │
-       ▼
-File Size Check
-       │
-       ▼
-Choose Telegram Upload Type
-       │
-       ▼
-Send Media
-       │
-       ▼
-Delete Temporary File
-```
-
----
-
-## 🧩 Project Structure
-
-```text
-python-downloader1/
-│
-├── config.py
-├── downloader.py
-├── handlers.py
-├── keepalive.py
-├── ratelimit.py
-├── requirements.txt
-└── README.md
-```
-
-### `config.py`
-
-Contains the main runtime configuration:
-
-* Telegram bot token
-* Download directory
-* Maximum file size
-* User cooldown duration
-
-The bot token is read from the `BOT_TOKEN` environment variable.
-
-### `downloader.py`
-
-Contains the actual media downloader.
-
-It uses:
-
-* `yt-dlp`
-* `imageio-ffmpeg`
-
-The downloader disables playlists and prefers files under 50 MB when possible.
-
-### `handlers.py`
-
-Handles Telegram messages, extracts URLs, manages downloads, uploads the resulting files, and cleans up temporary files.
-
-### `ratelimit.py`
-
-Implements the per-user cooldown using an in-memory dictionary containing the timestamp of each user's most recent download request.
-
-### `keepalive.py`
-
-Runs a lightweight Flask server used as a health/keepalive endpoint.
-
----
-
-## 📦 Requirements
-
-The project currently uses:
-
-```text
-python-telegram-bot==21.0.1
-yt-dlp>=2024.1.1
-flask==3.0.3
-imageio-ffmpeg==0.5.1
-```
-
-These dependencies are listed in `requirements.txt`.
-
----
-
-## 🚀 Installation
-
-### 1. Clone the repository
+## 🚀 Quick start
 
 ```bash
 git clone https://github.com/hosseinb1111/python-downloader1.git
 cd python-downloader1
-```
 
-### 2. Create a virtual environment
-
-Windows:
-
-```powershell
-python -m venv .venv
-.venv\Scripts\activate
-```
-
-Linux / macOS:
-
-```bash
 python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 3. Install dependencies
-
-```bash
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-```
 
-### 4. Create your Telegram bot
-
-Open **[@BotFather](https://t.me/BotFather)** in Telegram and create a bot.
-
-Copy the generated bot token.
-
-### 5. Set the bot token
-
-The project expects:
-
-```text
-BOT_TOKEN
-```
-
-as an environment variable.
-
-Windows PowerShell:
-
-```powershell
-$env:BOT_TOKEN="YOUR_BOT_TOKEN"
-```
-
-Windows CMD:
-
-```cmd
-set BOT_TOKEN=YOUR_BOT_TOKEN
-```
-
-Linux / macOS:
-
-```bash
-export BOT_TOKEN="YOUR_BOT_TOKEN"
-```
-
----
-
-## ▶️ Running the Bot
-
-Start the application using the project's entry point.
-
-For example:
-
-```bash
+cp .env.example .env               # then edit .env and paste your token
 python main.py
 ```
 
-> The repository currently does not include a `main.py` file in the visible root file list, so your actual startup file may be located elsewhere in your deployment setup. The listed repository files currently include `config.py`, `downloader.py`, `handlers.py`, `keepalive.py`, `ratelimit.py`, and `requirements.txt`.
+Get a token from [@BotFather](https://t.me/BotFather) (`/newbot`). Alternatively, skip the `.env` file and export it:
+
+```bash
+export BOT_TOKEN="123456:ABC..."   # PowerShell: $env:BOT_TOKEN="..."
+```
+
+Python **3.10+** is required. FFmpeg is bundled through `imageio-ffmpeg`, so there's nothing else to install.
 
 ---
 
 ## 💬 Usage
 
-Start a conversation with the bot and send a URL.
+| Command | What it does |
+|---|---|
+| *(just send a link)* | Downloads the video |
+| `/audio <link>` | Downloads the audio as MP3 (also works as a reply to a message containing a link) |
+| `/start`, `/help` | Welcome message and limits |
 
-Example:
-
-```text
-https://example.com/video
-```
-
-The bot will:
-
-```text
-🔍 Detect the URL
-↓
-⏱️ Check cooldown
-↓
-📥 Download the media
-↓
-📏 Check file size
-↓
-📤 Upload it to Telegram
-```
-
-You should also receive a temporary:
-
-```text
-Downloading...
-```
-
-message while the download is in progress.
+In group chats the bot only reacts to links when privacy mode is off; it stays silent on non-link messages there. Use `/audio` explicitly in groups.
 
 ---
 
 ## ⚙️ Configuration
 
-The main settings are defined in `config.py`.
+Everything is configured with environment variables (or a `.env` file).
 
-### Download directory
-
-Current value:
-
-```python
-DOWNLOAD_DIR = "/tmp/downloads"
-```
-
-### Maximum file size
-
-Current value:
-
-```python
-MAX_SIZE_MB = 50
-```
-
-### Cooldown
-
-Current value:
-
-```python
-COOLDOWN_SECONDS = 30
-```
-
-These values can be changed to suit your deployment.
+| Variable | Default | Description |
+|---|---|---|
+| `BOT_TOKEN` | — **(required)** | Token from @BotFather |
+| `MAX_SIZE_MB` | `50` | Largest file to send. 50 MB is Telegram's limit for bots using the cloud Bot API |
+| `COOLDOWN_SECONDS` | `30` | Time a user must wait between downloads |
+| `MAX_DURATION_SECONDS` | `3600` | Reject videos longer than this (live streams are always rejected) |
+| `MAX_CONCURRENT_DOWNLOADS` | `3` | How many downloads run at once; the rest wait in a queue |
+| `AUDIO_BITRATE_KBPS` | `192` | MP3 quality for `/audio` |
+| `ALLOW_GENERIC_EXTRACTOR` | `false` | Let yt-dlp try *any* web page, not only sites it has a dedicated extractor for. Convenient, but widens what the bot will fetch |
+| `ALLOWED_USER_IDS` | *(empty)* | Comma-separated Telegram user IDs. If set, the bot is private |
+| `DOWNLOAD_DIR` | system temp `/downloads` | Where temporary job folders are created |
+| `PORT` | `10000` | Port for the health endpoint (Render sets this automatically) |
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`… |
 
 ---
 
-## 🔐 Security
+## ☁️ Deployment
 
-Never upload your Telegram bot token to GitHub.
+**Docker**
 
-Use an environment variable instead:
+```bash
+docker build -t telegram-downloader .
+docker run -d --restart unless-stopped -e BOT_TOKEN="123456:ABC..." -p 10000:10000 telegram-downloader
+```
+
+**Render** — a ready-made [`render.yaml`](render.yaml) is included. Create a *Blueprint* from the repo, set `BOT_TOKEN`, and deploy. The health check path is `/health`.
+
+> The bot uses long polling, so it needs no public URL or webhook. The HTTP endpoint exists only so hosts and uptime monitors can see that the process is alive. Run **one instance per token** — two pollers on the same bot will fight each other.
+
+---
+
+## 🏗️ How it works
 
 ```text
-BOT_TOKEN
+message ──► extract URL ──► allowed user? ──► cooldown ──► queue (max N at once)
+                                                              │
+                      ┌───────────────────────────────────────┘
+                      ▼
+          safety check (public host only)
+                      ▼
+          yt-dlp in a worker thread ◄── live progress ──► status message
+          (duration / live / size filters, quality ladder)
+                      ▼
+          upload as video / audio / photo / document
+                      ▼
+               delete temp folder
 ```
 
-Also avoid committing local configuration files containing secrets.
+### Project layout
 
-A useful `.gitignore` is:
-
-```gitignore
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-.env
-.env.*
-.wrangler/
-.DS_Store
-Thumbs.db
+```text
+├── main.py          # entry point: builds the bot, starts the health server
+├── handlers.py      # /start /help /audio + link handling, progress, upload
+├── downloader.py    # yt-dlp wrapper: filters, quality ladder, temp folders
+├── security.py      # URL validation (blocks private/internal addresses)
+├── ratelimit.py     # per-user cooldown
+├── utils.py         # URL extraction, captions, friendly error messages
+├── keepalive.py     # stdlib HTTP server for / and /health
+├── stats.py         # in-memory counters for /health
+├── errors.py        # exceptions with user-safe messages
+├── config.py        # environment-based settings
+├── tests/           # unit tests (no network or Telegram needed)
+├── Dockerfile · render.yaml · .env.example
+└── requirements.txt
 ```
 
 ---
 
-## ⚠️ Important Notes
+## 🧪 Development
 
-This project uses `yt-dlp`, which means supported websites and extraction behavior can change over time.
+```bash
+python -m unittest discover -s tests -t .
+```
 
-A URL that works today may stop working later because a website changed its API, authentication requirements, anti-bot systems, or page structure.
-
-The cooldown system currently stores timestamps **in memory**, meaning the rate-limit state is reset when the process restarts and is local to that process.
-
-The project also removes temporary files after attempting to send them, helping prevent the download directory from filling up.
+The tests use fakes for yt-dlp and Telegram, so they run offline and fast. They cover URL extraction, cooldowns, SSRF protection, the download pipeline (limits, quality fallback, cleanup) and the full message flow.
 
 ---
 
-## 🛠️ Built With
+## ⚠️ Good to know
 
-* 🐍 Python
-* 🤖 `python-telegram-bot`
-* 📥 `yt-dlp`
-* 🎞️ `imageio-ffmpeg`
-* 🌐 Flask
+* **Sites change.** yt-dlp support depends on each website. If a site stops working, update it first: `pip install -U yt-dlp`.
+* **Some content is out of reach**: private, age-restricted, login-only or region-locked media — and some platforms block datacenter IPs. The bot will say so rather than show a stack trace.
+* **Cooldowns live in memory** and reset when the process restarts.
+* **SSRF protection** checks the address a link resolves to before downloading. A public page that *redirects* to an internal address is not caught by that check; keeping `ALLOW_GENERIC_EXTRACTOR` off (the default) is the main defence there. Don't expose the bot's host to internal services you can't afford to leak.
+* **Respect copyright and each site's terms of service.** You're responsible for what your bot is used for.
 
 ---
+
+## 🛠️ Built with
+
+🐍 Python · 🤖 python-telegram-bot · 📥 yt-dlp · 🎞️ imageio-ffmpeg
 
 ## 🧑‍💻 Author
 
 Created by [Hossein](https://github.com/hosseinb1111)
 
----
-
 ## 📄 License
 
-This project is licensed under the **MIT License**.
-
-See the [LICENSE](LICENSE) file for the full license text.
-
-Copyright © 2026 [Hossein](https://github.com/hosseinb1111)
+MIT — see [LICENSE](LICENSE). Copyright © 2026 [Hossein](https://github.com/hosseinb1111)
